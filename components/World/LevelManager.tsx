@@ -69,7 +69,9 @@ const ParticleSystem: React.FC = () => {
         vel: new THREE.Vector3(),
         rot: new THREE.Vector3(),
         rotVel: new THREE.Vector3(),
-        color: new THREE.Color()
+        color: new THREE.Color(),
+        size: 0.2,
+        drag: 0.97
     })), []);
 
     useEffect(() => {
@@ -81,7 +83,8 @@ const ParticleSystem: React.FC = () => {
             for(let i = 0; i < PARTICLE_COUNT; i++) {
                 const p = particles[i];
                 if (p.life <= 0) {
-                    p.life = 1.0 + Math.random() * 0.5; 
+                    // Randomize life between 0.5 and 2.5 seconds for a highly consistent, persistent trail
+                    p.life = 0.5 + Math.random() * 2.0; 
                     p.pos.set(position[0], position[1], position[2]);
                     
                     const theta = Math.random() * Math.PI * 2;
@@ -98,6 +101,8 @@ const ParticleSystem: React.FC = () => {
                     p.rotVel.set(Math.random()-0.5, Math.random()-0.5, Math.random()-0.5).multiplyScalar(5);
                     
                     p.color.set(color);
+                    p.size = 0.12 + Math.random() * 0.3; // Randomized sizes
+                    p.drag = 0.94 + Math.random() * 0.04; // Randomized particle drag
                     
                     spawned++;
                     if (spawned >= burstAmount) break;
@@ -115,16 +120,16 @@ const ParticleSystem: React.FC = () => {
 
         particles.forEach((p, i) => {
             if (p.life > 0) {
-                p.life -= safeDelta * 1.5;
+                p.life -= safeDelta * 0.8; // Much slower, smoother decay
                 p.pos.addScaledVector(p.vel, safeDelta);
-                p.vel.y -= safeDelta * 5; 
-                p.vel.multiplyScalar(0.98);
+                p.vel.y -= safeDelta * 3.5; // Moderate gravity
+                p.vel.multiplyScalar(p.drag); // Customized drag
 
                 p.rot.x += p.rotVel.x * safeDelta;
                 p.rot.y += p.rotVel.y * safeDelta;
                 
                 dummy.position.copy(p.pos);
-                const scale = Math.max(0, p.life * 0.25);
+                const scale = Math.max(0, p.life * p.size);
                 dummy.scale.set(scale, scale, scale);
                 
                 dummy.rotation.set(p.rot.x, p.rot.y, p.rot.z);
@@ -167,7 +172,8 @@ export const LevelManager: React.FC = () => {
     laneCount,
     setDistance,
     openShop,
-    level
+    level,
+    countdown
   } = useStore();
   
   const objectsRef = useRef<GameObject[]>([]);
@@ -234,6 +240,7 @@ export const LevelManager: React.FC = () => {
 
   useFrame((state, delta) => {
     if (status !== GameStatus.PLAYING) return;
+    if (countdown > 0) return;
 
     const safeDelta = Math.min(delta, 0.05); 
     const dist = speed * safeDelta;

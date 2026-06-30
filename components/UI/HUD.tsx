@@ -45,7 +45,7 @@ const SHOP_ITEMS: ShopItem[] = [
 ];
 
 const ShopScreen: React.FC = () => {
-    const { score, buyItem, closeShop, hasDoubleJump, hasImmortality } = useStore();
+    const { score, buyItem, closeShop, hasDoubleJump, hasImmortality, startCountdown } = useStore();
     const [items, setItems] = useState<ShopItem[]>([]);
 
     useEffect(() => {
@@ -94,7 +94,7 @@ const ShopScreen: React.FC = () => {
                  </div>
 
                  <button 
-                    onClick={closeShop}
+                    onClick={() => { closeShop(); startCountdown(); }}
                     className="flex items-center px-8 md:px-10 py-3 md:py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-lg md:text-xl rounded hover:scale-105 transition-all shadow-[0_0_20px_rgba(255,0,255,0.4)]"
                  >
                      RESUME MISSION <Play className="ml-2 w-5 h-5" fill="white" />
@@ -105,7 +105,7 @@ const ShopScreen: React.FC = () => {
 };
 
 export const HUD: React.FC = () => {
-  const { score, lives, maxLives, collectedLetters, status, level, restartGame, startGame, gemsCollected, distance, isImmortalityActive, speed } = useStore();
+  const { score, lives, maxLives, collectedLetters, status, level, restartGame, startGame, gemsCollected, distance, isImmortalityActive, speed, countdown, startCountdown } = useStore();
   const target = ['G', 'E', 'M', 'I', 'N', 'I'];
 
   // Common container style
@@ -135,7 +135,7 @@ export const HUD: React.FC = () => {
                      {/* Content positioned at the bottom of the card */}
                      <div className="absolute inset-0 flex flex-col justify-end items-center p-6 pb-8 text-center z-10">
                         <button 
-                          onClick={() => { audio.init(); startGame(); }}
+                          onClick={() => { audio.init(); startGame(); startCountdown(); }}
                           className="w-full group relative px-6 py-4 bg-white/10 backdrop-blur-md border border-white/20 text-white font-black text-xl rounded-xl hover:bg-white/20 transition-all shadow-[0_0_20px_rgba(0,255,255,0.2)] hover:shadow-[0_0_30px_rgba(0,255,255,0.4)] hover:border-cyan-400 overflow-hidden"
                         >
                             <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/40 via-purple-500/40 to-pink-500/40 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
@@ -180,7 +180,7 @@ export const HUD: React.FC = () => {
                 </div>
 
                 <button 
-                  onClick={() => { audio.init(); restartGame(); }}
+                  onClick={() => { audio.init(); restartGame(); startCountdown(); }}
                   className="px-8 md:px-10 py-3 md:py-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-lg md:text-xl rounded hover:scale-105 transition-all shadow-[0_0_20px_rgba(0,255,255,0.4)]"
                 >
                     RUN AGAIN
@@ -220,7 +220,7 @@ export const HUD: React.FC = () => {
                 </div>
 
                 <button 
-                  onClick={() => { audio.init(); restartGame(); }}
+                  onClick={() => { audio.init(); restartGame(); startCountdown(); }}
                   className="px-8 md:px-12 py-4 md:py-5 bg-white text-black font-black text-lg md:text-xl rounded hover:scale-105 transition-all shadow-[0_0_40px_rgba(255,255,255,0.3)] tracking-widest"
                 >
                     RESTART MISSION
@@ -228,6 +228,26 @@ export const HUD: React.FC = () => {
             </div>
         </div>
     );
+  }
+
+  if (status === GameStatus.PLAYING && countdown > 0) {
+      return (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md z-[100] text-white pointer-events-auto">
+              <div className="text-center select-none animate-pulse">
+                  <div className="text-purple-400 font-mono text-xs uppercase tracking-[0.3em] mb-4">
+                      {countdown === 3 && "WARMING UP SYSTEMS..."}
+                      {countdown === 2 && "INITIALIZING VECTORS..."}
+                      {countdown === 1 && "PREPARING RUN..."}
+                  </div>
+                  <div className="text-8xl md:text-9xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500 drop-shadow-[0_0_30px_rgba(0,255,255,0.8)] font-cyber transition-all scale-110 duration-300">
+                      {countdown}
+                  </div>
+                  <div className="text-cyan-400 font-mono text-[10px] uppercase tracking-[0.5em] mt-6">
+                      SECURE GATEWAY ENFORCED
+                  </div>
+              </div>
+          </div>
+      );
   }
 
   return (

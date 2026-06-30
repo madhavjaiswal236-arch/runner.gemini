@@ -6,6 +6,17 @@
 
 import { create } from 'zustand';
 import { GameStatus, RUN_SPEED_BASE } from './types';
+import { audio } from './components/System/Audio';
+
+export const triggerVibrate = (pattern: number | number[]) => {
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    try {
+      navigator.vibrate(pattern);
+    } catch (e) {
+      console.warn("Vibration not supported or failed:", e);
+    }
+  }
+};
 
 interface GameState {
   status: GameStatus;
@@ -40,6 +51,9 @@ interface GameState {
   openShop: () => void;
   closeShop: () => void;
   activateImmortality: () => void;
+  countdown: number;
+  setCountdown: (val: number) => void;
+  startCountdown: () => void;
 }
 
 const GEMINI_TARGET = ['G', 'E', 'M', 'I', 'N', 'I'];
@@ -99,17 +113,22 @@ export const useStore = create<GameState>((set, get) => ({
 
     if (lives > 1) {
       set({ lives: lives - 1 });
+      triggerVibrate(150); // Single medium pulse for damage
     } else {
       set({ lives: 0, status: GameStatus.GAME_OVER, speed: 0 });
+      triggerVibrate([300, 100, 300, 100, 500]); // Long warning pulses for game over
     }
   },
 
   addScore: (amount) => set((state) => ({ score: state.score + amount })),
   
-  collectGem: (value) => set((state) => ({ 
-    score: state.score + value, 
-    gemsCollected: state.gemsCollected + 1 
-  })),
+  collectGem: (value) => {
+    triggerVibrate(25); // Very brief haptic tick for gems
+    set((state) => ({ 
+      score: state.score + value, 
+      gemsCollected: state.gemsCollected + 1 
+    }));
+  },
 
   setDistance: (dist) => set({ distance: dist }),
 
@@ -117,6 +136,7 @@ export const useStore = create<GameState>((set, get) => ({
     const { collectedLetters, level, speed } = get();
     
     if (!collectedLetters.includes(index)) {
+      triggerVibrate(60); // Distinct physical tick for letters
       const newLetters = [...collectedLetters, index];
       
       // LINEAR SPEED INCREASE: Add 10% of BASE speed per letter
@@ -137,6 +157,7 @@ export const useStore = create<GameState>((set, get) => ({
             get().advanceLevel();
         } else {
             // Victory Condition
+            triggerVibrate([100, 50, 100, 50, 100, 50, 400]); // Fanfare pattern
             set({
                 status: GameStatus.VICTORY,
                 score: get().score + 5000
@@ -203,6 +224,25 @@ export const useStore = create<GameState>((set, get) => ({
               set({ isImmortalityActive: false });
           }, 5000);
       }
+  },
+
+  countdown: 0,
+  setCountdown: (val) => set({ countdown: val }),
+  startCountdown: async () => {
+    set({ countdown: 3 });
+    audio.playCountdown();
+    
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    set({ countdown: 2 });
+    audio.playCountdown();
+    
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    set({ countdown: 1 });
+    audio.playCountdown();
+    
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    set({ countdown: 0 });
+    audio.playCountdownStart();
   },
 
   setStatus: (status) => set({ status }),

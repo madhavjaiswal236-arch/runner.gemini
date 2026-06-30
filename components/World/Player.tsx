@@ -25,6 +25,7 @@ const JOINT_SPHERE_GEO = new THREE.SphereGeometry(0.07);
 const HIPS_GEO = new THREE.CylinderGeometry(0.16, 0.16, 0.2);
 const LEG_GEO = new THREE.BoxGeometry(0.15, 0.7, 0.15);
 const SHADOW_GEO = new THREE.CircleGeometry(0.5, 32);
+const TRAIL_PARTICLE_COUNT = 80;
 
 export const Player: React.FC = () => {
   const groupRef = useRef<THREE.Group>(null);
@@ -38,10 +39,22 @@ export const Player: React.FC = () => {
   const rightLegRef = useRef<THREE.Group>(null);
   const headRef = useRef<THREE.Group>(null);
 
-  const { status, laneCount, takeDamage, hasDoubleJump, activateImmortality, isImmortalityActive } = useStore();
+  const { status, laneCount, takeDamage, hasDoubleJump, activateImmortality, isImmortalityActive, speed, countdown } = useStore();
   
   const [lane, setLane] = React.useState(0);
   const targetX = useRef(0);
+
+  // Trailing Sparks particle array and refs
+  const trailParticles = useMemo(() => new Array(TRAIL_PARTICLE_COUNT).fill(0).map(() => ({
+    life: 0,
+    pos: new THREE.Vector3(),
+    vel: new THREE.Vector3(),
+    color: new THREE.Color(),
+    size: 0.1,
+    drag: 0.96
+  })), []);
+  const trailMeshRef = useRef<THREE.InstancedMesh>(null);
+  const trailDummy = useMemo(() => new THREE.Object3D(), []);
   
   // Physics State (using Refs for immediate logic updates)
   const isJumping = useRef(false);
@@ -109,7 +122,7 @@ export const Player: React.FC = () => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (status !== GameStatus.PLAYING) return;
+      if (status !== GameStatus.PLAYING || countdown > 0) return;
       const maxLane = Math.floor(laneCount / 2);
 
       if (e.key === 'ArrowLeft') setLane(l => Math.max(l - 1, -maxLane));
@@ -122,7 +135,7 @@ export const Player: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [status, laneCount, hasDoubleJump, activateImmortality]);
+  }, [status, laneCount, hasDoubleJump, activateImmortality, countdown]);
 
   useEffect(() => {
     const handleTouchStart = (e: TouchEvent) => {
@@ -131,7 +144,7 @@ export const Player: React.FC = () => {
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
-        if (status !== GameStatus.PLAYING) return;
+        if (status !== GameStatus.PLAYING || countdown > 0) return;
         const deltaX = e.changedTouches[0].clientX - touchStartX.current;
         const deltaY = e.changedTouches[0].clientY - touchStartY.current;
         const maxLane = Math.floor(laneCount / 2);
@@ -159,6 +172,43 @@ export const Player: React.FC = () => {
   useFrame((state, delta) => {
     if (!groupRef.current) return;
     if (status !== GameStatus.PLAYING && status !== GameStatus.SHOP) return;
+
+    if (countdown > 0) {
+      // Snapping/positioning during countdown
+      targetX.current = lane * LANE_WIDTH;
+      groupRef.current.position.x = THREE.MathUtils.lerp(
+          groupRef.current.position.x, 
+          targetX.current, 
+          delta * 15 
+      );
+      groupRef.current.position.y = 0;
+
+      // Active skeletal animation to look ready
+      const time = state.clock.elapsedTime * 25; 
+      if (leftArmRef.current) leftArmRef.current.rotation.x = Math.sin(time) * 0.7;
+      if (rightArmRef.current) rightArmRef.current.rotation.x = Math.sin(time + Math.PI) * 0.7;
+      if (leftLegRef.current) leftLegRef.current.rotation.x = Math.sin(time + Math.PI) * 1.0;
+      if (rightLegRef.current) rightLegRef.current.rotation.x = Math.sin(time) * 1.0;
+      
+      if (bodyRef.current) {
+        bodyRef.current.position.y = 1.1 + Math.abs(Math.sin(time)) * 0.1;
+        bodyRef.current.rotation.x = 0;
+      }
+
+      groupRef.current.rotation.z = 0;
+      groupRef.current.rotation.x = 0.05;
+
+      // Hide high speed trailing sparks
+      if (trailMeshRef.current) {
+        for (let i = 0; i < TRAIL_PARTICLE_COUNT; i++) {
+          trailDummy.scale.set(0, 0, 0);
+          trailDummy.updateMatrix();
+          trailMeshRef.current.setMatrixAt(i, trailDummy.matrix);
+        }
+        trailMeshRef.current.instanceMatrix.needsUpdate = true;
+      }
+      return;
+    }
 
     // 1. Horizontal Position
     targetX.current = lane * LANE_WIDTH;
@@ -252,6 +302,68 @@ export const Player: React.FC = () => {
     } else {
         groupRef.current.visible = true;
     }
+
+    // --- Trailing sparks emitter during movement ---
+    if (status === GameStatus.PLAYING && speed > 5 && bodyRef.current) {
+      // Spawn new trail sparks proportional to speed
+      const spawnChance = speed * 0.015; // higher speed = more sparks
+      
+      // Calculate world coordinates of the left and right sides of the jetpack
+      const jetpackLeft = new THREE.Vector3(-0.15, 0.2, -0.25).applyMatrix4(bodyRef.current.matrixWorld);
+      const jetpackRight = new THREE.Vector3(0.15, 0.2, -0.25).applyMatrix4(bodyRef.current.matrixWorld);
+
+      for (let s = 0; s < 2; s++) { 
+        if (Math.random() < spawnChance) {
+          const p = trailParticles.find(x => x.life <= 0);
+          if (p) {
+            p.life = 0.4 + Math.random() * 0.6; // 0.4s to 1.0s lifespan
+            const spawnPos = Math.random() > 0.5 ? jetpackLeft : jetpackRight;
+            p.pos.copy(spawnPos);
+            
+            // Vel: move backwards along Z (away from player's front) and slightly down/spread
+            p.vel.set(
+              (Math.random() - 0.5) * 1.5,
+              (Math.random() - 0.4) * 1.2 - 0.5, // slight downward drift
+              speed * 0.8 + Math.random() * 3.0 // move backward aligned with road speed
+            );
+            
+            // Synthwave neon colors: cyan, hot pink, vivid orange, toxic green, bright purple
+            const neonColors = ['#00ffff', '#ff00ff', '#ff5e00', '#00ff66', '#bd00ff', '#ffe600'];
+            const randomColor = neonColors[Math.floor(Math.random() * neonColors.length)];
+            p.color.set(randomColor);
+            p.size = 0.05 + Math.random() * 0.08;
+            p.drag = 0.94 + Math.random() * 0.04;
+          }
+        }
+      }
+    }
+
+    // Update and draw trail sparks in InstancedMesh
+    if (trailMeshRef.current) {
+      const safeDelta = Math.min(delta, 0.1);
+      trailParticles.forEach((p, i) => {
+        if (p.life > 0) {
+          p.life -= safeDelta * 1.6;
+          p.pos.addScaledVector(p.vel, safeDelta);
+          p.vel.multiplyScalar(p.drag); // apply personalized drag
+          p.vel.y -= safeDelta * 2.0; // slight gravity pull on sparks
+
+          trailDummy.position.copy(p.pos);
+          const currentScale = Math.max(0, p.life * p.size);
+          trailDummy.scale.set(currentScale, currentScale, currentScale);
+          trailDummy.updateMatrix();
+          
+          trailMeshRef.current!.setMatrixAt(i, trailDummy.matrix);
+          trailMeshRef.current!.setColorAt(i, p.color);
+        } else {
+          trailDummy.scale.set(0, 0, 0);
+          trailDummy.updateMatrix();
+          trailMeshRef.current!.setMatrixAt(i, trailDummy.matrix);
+        }
+      });
+      trailMeshRef.current.instanceMatrix.needsUpdate = true;
+      if (trailMeshRef.current.instanceColor) trailMeshRef.current.instanceColor.needsUpdate = true;
+    }
   });
 
   // Damage Handler
@@ -315,6 +427,12 @@ export const Player: React.FC = () => {
       </group>
       
       <mesh ref={shadowRef} position={[0, 0.02, 0]} rotation={[-Math.PI/2, 0, 0]} geometry={SHADOW_GEO} material={shadowMaterial} />
+
+      {/* Jetpack high speed trailing sparks */}
+      <instancedMesh ref={trailMeshRef} args={[undefined, undefined, TRAIL_PARTICLE_COUNT]}>
+        <dodecahedronGeometry args={[0.15, 0]} />
+        <meshBasicMaterial toneMapped={false} transparent opacity={0.9} />
+      </instancedMesh>
     </group>
   );
 };
