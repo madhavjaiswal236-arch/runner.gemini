@@ -78,7 +78,7 @@ export function AccessGating({ onValidated, onLogout, sessionToken, setSessionTo
     }
 
     // Activate the code
-    const sessionToken = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36);
+    const sessionToken = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36);
     const now = Date.now();
     const expiresAt = now + entry.durationMinutes * 60 * 1000;
 

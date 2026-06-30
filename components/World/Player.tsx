@@ -133,8 +133,41 @@ export const Player: React.FC = () => {
       }
     };
 
+    const handleMoveLeft = () => {
+      if (status !== GameStatus.PLAYING || countdown > 0) return;
+      const maxLane = Math.floor(laneCount / 2);
+      setLane(l => Math.max(l - 1, -maxLane));
+    };
+
+    const handleMoveRight = () => {
+      if (status !== GameStatus.PLAYING || countdown > 0) return;
+      const maxLane = Math.floor(laneCount / 2);
+      setLane(l => Math.min(l + 1, maxLane));
+    };
+
+    const handleJumpEvent = () => {
+      if (status !== GameStatus.PLAYING || countdown > 0) return;
+      triggerJump();
+    };
+
+    const handleSkillEvent = () => {
+      if (status !== GameStatus.PLAYING || countdown > 0) return;
+      activateImmortality();
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('player-move-left', handleMoveLeft);
+    window.addEventListener('player-move-right', handleMoveRight);
+    window.addEventListener('player-jump', handleJumpEvent);
+    window.addEventListener('player-skill', handleSkillEvent);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('player-move-left', handleMoveLeft);
+      window.removeEventListener('player-move-right', handleMoveRight);
+      window.removeEventListener('player-jump', handleJumpEvent);
+      window.removeEventListener('player-skill', handleSkillEvent);
+    };
   }, [status, laneCount, hasDoubleJump, activateImmortality, countdown]);
 
   useEffect(() => {

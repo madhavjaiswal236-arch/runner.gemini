@@ -5,8 +5,8 @@
 
 
 import React, { useState, useEffect } from 'react';
-import { Heart, Zap, Trophy, MapPin, Diamond, Rocket, ArrowUpCircle, Shield, Activity, PlusCircle, Play } from 'lucide-react';
-import { useStore } from '../../store';
+import { Heart, Zap, Trophy, MapPin, Diamond, Rocket, ArrowUpCircle, Shield, Activity, PlusCircle, Play, ArrowLeft, ArrowRight } from 'lucide-react';
+import { useStore, triggerVibrate } from '../../store';
 import { GameStatus, GEMINI_COLORS, ShopItem, RUN_SPEED_BASE } from '../../types';
 import { audio } from '../System/Audio';
 
@@ -105,8 +105,43 @@ const ShopScreen: React.FC = () => {
 };
 
 export const HUD: React.FC = () => {
-  const { score, lives, maxLives, collectedLetters, status, level, restartGame, startGame, gemsCollected, distance, isImmortalityActive, speed, countdown, startCountdown } = useStore();
+  const { score, lives, maxLives, collectedLetters, status, level, restartGame, startGame, gemsCollected, distance, isImmortalityActive, speed, countdown, startCountdown, hasImmortality } = useStore();
   const target = ['G', 'E', 'M', 'I', 'N', 'I'];
+
+  const [showTouchControls, setShowTouchControls] = useState(false);
+  useEffect(() => {
+    const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const isMobileSize = window.innerWidth < 1024;
+    setShowTouchControls(isTouch || isMobileSize);
+  }, []);
+
+  const triggerLeft = (e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    triggerVibrate(30);
+    window.dispatchEvent(new CustomEvent('player-move-left'));
+  };
+
+  const triggerRight = (e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    triggerVibrate(30);
+    window.dispatchEvent(new CustomEvent('player-move-right'));
+  };
+
+  const triggerJump = (e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    triggerVibrate(40);
+    window.dispatchEvent(new CustomEvent('player-jump'));
+  };
+
+  const triggerSkill = (e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    triggerVibrate(50);
+    window.dispatchEvent(new CustomEvent('player-skill'));
+  };
 
   // Common container style
   const containerClass = "absolute inset-0 pointer-events-none flex flex-col justify-between p-4 md:p-8 z-50";
@@ -313,6 +348,60 @@ export const HUD: React.FC = () => {
                  <span className="font-mono text-base md:text-xl">SPEED {Math.round((speed / RUN_SPEED_BASE) * 100)}%</span>
              </div>
         </div>
+
+        {/* On-screen Touch Controls (Mobile / Small Screen Gamepad) */}
+        {showTouchControls && (
+             <div className="absolute inset-0 pointer-events-none select-none z-50">
+                 {/* Left Side: Directional Arrows */}
+                 <div className="absolute bottom-6 left-6 flex space-x-3 pointer-events-auto">
+                     <button
+                         onTouchStart={triggerLeft}
+                         onMouseDown={triggerLeft}
+                         className="w-14 h-14 rounded-2xl bg-cyan-950/70 border border-cyan-500/50 flex items-center justify-center text-cyan-400 active:bg-cyan-500 active:text-black active:scale-95 transition-all shadow-[0_0_15px_rgba(6,182,212,0.15)] active:shadow-[0_0_25px_rgba(6,182,212,0.4)]"
+                         aria-label="Move Left"
+                     >
+                         <ArrowLeft className="w-6 h-6" />
+                     </button>
+                     <button
+                         onTouchStart={triggerRight}
+                         onMouseDown={triggerRight}
+                         className="w-14 h-14 rounded-2xl bg-cyan-950/70 border border-cyan-500/50 flex items-center justify-center text-cyan-400 active:bg-cyan-500 active:text-black active:scale-95 transition-all shadow-[0_0_15px_rgba(6,182,212,0.15)] active:shadow-[0_0_25px_rgba(6,182,212,0.4)]"
+                         aria-label="Move Right"
+                     >
+                         <ArrowRight className="w-6 h-6" />
+                     </button>
+                 </div>
+
+                 {/* Right Side: Jump & Skill Buttons */}
+                 <div className="absolute bottom-6 right-6 flex items-center space-x-3 pointer-events-auto">
+                     {/* Immortality / Shield Skill Button */}
+                     <button
+                         onTouchStart={triggerSkill}
+                         onMouseDown={triggerSkill}
+                         disabled={!hasImmortality}
+                         className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
+                             hasImmortality
+                                 ? 'bg-yellow-950/70 border border-yellow-500/50 text-yellow-500 active:bg-yellow-500 active:text-black active:scale-95 shadow-[0_0_15px_rgba(234,179,8,0.15)] active:shadow-[0_0_25px_rgba(234,179,8,0.4)]'
+                                 : 'bg-gray-950/40 border border-gray-800 text-gray-700 opacity-40 cursor-not-allowed'
+                         }`}
+                         aria-label="Activate Immortality"
+                     >
+                         <Shield className={`w-6 h-6 ${isImmortalityActive ? 'fill-yellow-500 animate-pulse' : ''}`} />
+                     </button>
+
+                     {/* Jump Button */}
+                     <button
+                         onTouchStart={triggerJump}
+                         onMouseDown={triggerJump}
+                         className="w-16 h-16 rounded-2xl bg-purple-950/70 border border-purple-500/50 flex flex-col items-center justify-center text-purple-400 active:bg-purple-500 active:text-black active:scale-95 transition-all shadow-[0_0_15px_rgba(168,85,247,0.15)] active:shadow-[0_0_25px_rgba(168,85,247,0.4)]"
+                         aria-label="Jump"
+                     >
+                         <ArrowUpCircle className="w-8 h-8 animate-bounce duration-1000" />
+                         <span className="text-[9px] font-cyber tracking-wider mt-0.5">JUMP</span>
+                     </button>
+                 </div>
+             </div>
+        )}
     </div>
   );
 };

@@ -7,7 +7,7 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { Text3D, Center, Float } from '@react-three/drei';
+import { Text, Center, Float } from '@react-three/drei';
 import { v4 as uuidv4 } from 'uuid';
 import { useStore } from '../../store';
 import { GameObject, ObjectType, LANE_WIDTH, SPAWN_DISTANCE, REMOVE_DISTANCE, GameStatus, GEMINI_COLORS } from '../../types';
@@ -55,8 +55,7 @@ const getLetterInterval = (level: number) => {
 
 const MISSILE_SPEED = 30; // Extra speed added to world speed
 
-// Font for 3D Text
-const FONT_URL = "https://cdn.jsdelivr.net/npm/three/examples/fonts/helvetiker_bold.typeface.json";
+
 
 // --- Particle System ---
 const ParticleSystem: React.FC = () => {
@@ -645,10 +644,9 @@ const GameEntity: React.FC<{ data: GameObject }> = React.memo(({ data }) => {
                              <meshBasicMaterial color="#00ffff" wireframe transparent opacity={0.3} />
                          </mesh>
                          <Center position={[0, 5, 0.6]}>
-                             <Text3D font={FONT_URL} size={1.2} height={0.2}>
+                             <Text fontSize={1.2} color="#ffff00" anchorX="center" anchorY="middle">
                                  CYBER SHOP
-                                 <meshBasicMaterial color="#ffff00" />
-                             </Text3D>
+                             </Text>
                          </Center>
                          <mesh position={[0, 0.1, 0]} rotation={[-Math.PI/2, 0, 0]} geometry={SHOP_FLOOR_GEO} scale={[laneCount * LANE_WIDTH, 1, 1]}>
                              <meshBasicMaterial color="#00ffff" transparent opacity={0.3} />
@@ -739,18 +737,18 @@ const GameEntity: React.FC<{ data: GameObject }> = React.memo(({ data }) => {
                 {data.type === ObjectType.LETTER && (
                     <group scale={[1.5, 1.5, 1.5]}>
                          <Center>
-                             <Text3D 
-                                font={FONT_URL} 
-                                size={0.8} 
-                                height={0.5} 
-                                bevelEnabled
-                                bevelThickness={0.02}
-                                bevelSize={0.02}
-                                bevelSegments={5}
+                             <Text 
+                                fontSize={1.0} color={data.color} anchorX="center" anchorY="middle" 
+                                 
+                                 
+                                
+                                
+                                
+                                
                              >
                                 {data.value}
                                 <meshStandardMaterial color={data.color} emissive={data.color} emissiveIntensity={1.5} />
-                             </Text3D>
+                             </Text>
                          </Center>
                     </group>
                 )}
