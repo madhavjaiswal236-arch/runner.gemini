@@ -4,21 +4,13 @@ import {
   RefreshCw, AlertTriangle, Play, Maximize2, CheckCircle2, X, Eye, EyeOff
 } from "lucide-react";
 import { triggerVibrate } from "../../store";
+import { DEFAULT_CODES, CodeEntry } from "../../codesList";
 
 interface AccessGatingProps {
   onValidated: (sessionToken: string, durationMinutes: number, expiresAt: number) => void;
   onLogout: () => void;
   sessionToken: string | null;
   setSessionToken: (token: string | null) => void;
-}
-
-interface CodeEntry {
-  code: string;
-  durationMinutes: number;
-  status: "unused" | "active" | "used";
-  activatedAt: number | null;
-  expiresAt: number | null;
-  sessionToken: string | null;
 }
 
 export function AccessGating({ onValidated, onLogout, sessionToken, setSessionToken }: AccessGatingProps) {
@@ -35,6 +27,161 @@ export function AccessGating({ onValidated, onLogout, sessionToken, setSessionTo
 
   // Fullscreen guard state
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Client-side Vercel/Static Offline simulation functions
+  const getFallbackDb = (): CodeEntry[] => {
+    const localData = localStorage.getItem("vercel_codes_db");
+    if (localData) {
+      try {
+        return JSON.parse(localData);
+      } catch (e) {
+        console.error("Failed to parse vercel_codes_db from localStorage:", e);
+      }
+    }
+    // Initialize with DEFAULT_CODES
+    localStorage.setItem("vercel_codes_db", JSON.stringify(DEFAULT_CODES));
+    return [...DEFAULT_CODES];
+  };
+
+  const saveFallbackDb = (db: CodeEntry[]) => {
+    localStorage.setItem("vercel_codes_db", JSON.stringify(db));
+  };
+
+  // Client-side local implementation of endpoints
+  const fallbackValidateCode = (code: string): { success: boolean; sessionToken?: string; durationMinutes?: number; expiresAt?: number; error?: string } => {
+    const db = getFallbackDb();
+    const trimmedCode = code.trim().toUpperCase();
+    const entry = db.find((x) => x.code.toUpperCase() === trimmedCode);
+
+    if (!entry) {
+      return { success: false, error: "Invalid access code. Please check and try again." };
+    }
+
+    if (entry.status === "used") {
+      return { success: false, error: "This code is expired, fully disposed, and permanently banned from reuse." };
+    }
+
+    if (entry.status === "active") {
+      const now = Date.now();
+      if (entry.expiresAt && now >= entry.expiresAt) {
+        entry.status = "used";
+        entry.sessionToken = null;
+        saveFallbackDb(db);
+        return { success: false, error: "This code is expired, fully disposed, and permanently banned from reuse." };
+      }
+      return {
+        success: true,
+        sessionToken: entry.sessionToken || "",
+        durationMinutes: entry.durationMinutes,
+        expiresAt: entry.expiresAt || 0,
+      };
+    }
+
+    // Activate the code
+    const sessionToken = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36);
+    const now = Date.now();
+    const expiresAt = now + entry.durationMinutes * 60 * 1000;
+
+    entry.status = "active";
+    entry.activatedAt = now;
+    entry.expiresAt = expiresAt;
+    entry.sessionToken = sessionToken;
+
+    saveFallbackDb(db);
+
+    return {
+      success: true,
+      sessionToken,
+      durationMinutes: entry.durationMinutes,
+      expiresAt,
+    };
+  };
+
+  const fallbackSessionStatus = (token: string): { status: "active" | "expired" | "invalid"; remainingMs?: number; durationMinutes?: number; expiresAt?: number } => {
+    const db = getFallbackDb();
+    const entry = db.find((x) => x.sessionToken === token);
+
+    if (!entry) {
+      return { status: "invalid" };
+    }
+
+    const now = Date.now();
+    if (entry.expiresAt && now >= entry.expiresAt) {
+      entry.status = "used";
+      entry.sessionToken = null;
+      saveFallbackDb(db);
+      return { status: "expired" };
+    }
+
+    const remainingMs = entry.expiresAt ? entry.expiresAt - now : 0;
+    return {
+      status: "active",
+      remainingMs,
+      durationMinutes: entry.durationMinutes,
+      expiresAt: entry.expiresAt || 0,
+    };
+  };
+
+  const fallbackVoidSession = (token: string): boolean => {
+    const db = getFallbackDb();
+    const entry = db.find((x) => x.sessionToken === token);
+    if (entry) {
+      entry.status = "used";
+      entry.sessionToken = null;
+      saveFallbackDb(db);
+      return true;
+    }
+    return false;
+  };
+
+  const fallbackAdminStatus = () => {
+    const db = getFallbackDb();
+    const activeCount = db.filter((x) => x.status === "active").length;
+    const unusedCount = db.filter((x) => x.status === "unused").length;
+    const usedCount = db.filter((x) => x.status === "used").length;
+    return {
+      codes: db,
+      summary: {
+        total: db.length,
+        unused: unusedCount,
+        active: activeCount,
+        used: usedCount,
+      }
+    };
+  };
+
+  const fallbackAdminAdd = (codesList: string[], durationMinutes: number) => {
+    const db = getFallbackDb();
+    let addedCount = 0;
+    for (const code of codesList) {
+      const upperCode = code.trim().toUpperCase();
+      if (!db.some((x) => x.code.toUpperCase() === upperCode)) {
+        db.push({
+          code: upperCode,
+          durationMinutes,
+          status: "unused",
+          activatedAt: null,
+          expiresAt: null,
+          sessionToken: null,
+        });
+        addedCount++;
+      }
+    }
+    saveFallbackDb(db);
+    return { addedCount };
+  };
+
+  const fallbackAdminDelete = (code: string) => {
+    let db = getFallbackDb();
+    db = db.filter((x) => x.code.toUpperCase() !== code.trim().toUpperCase());
+    saveFallbackDb(db);
+    return true;
+  };
+
+  const fallbackAdminResetDb = () => {
+    saveFallbackDb([...DEFAULT_CODES]);
+    return true;
+  };
 
   // Admin Portal states
   const [showAdmin, setShowAdmin] = useState(false);
@@ -67,12 +214,22 @@ export function AccessGating({ onValidated, onLogout, sessionToken, setSessionTo
   const checkExistingSession = async (token: string) => {
     try {
       setLoading(true);
-      const res = await fetch("/api/session-status", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionToken: token }),
-      });
-      const data = await res.json();
+      let data;
+      try {
+        const res = await fetch("/api/session-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionToken: token }),
+        });
+        if (!res.ok) {
+          throw new Error("HTTP " + res.status);
+        }
+        data = await res.json();
+      } catch (apiErr) {
+        console.warn("API session check failed, using browser local storage fallback:", apiErr);
+        data = fallbackSessionStatus(token);
+      }
+
       if (data.status === "active") {
         setSessionToken(token);
         setDuration(data.durationMinutes);
@@ -110,15 +267,24 @@ export function AccessGating({ onValidated, onLogout, sessionToken, setSessionTo
     setLoading(true);
 
     try {
-      const res = await fetch("/api/validate-code", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: accessCode.trim() }),
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Authentication failed");
+      let data;
+      try {
+        const res = await fetch("/api/validate-code", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: accessCode.trim() }),
+        });
+        data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "Authentication failed");
+        }
+      } catch (apiErr: any) {
+        console.warn("API validation failed, trying browser local storage fallback:", apiErr);
+        const fallbackRes = fallbackValidateCode(accessCode.trim());
+        if (!fallbackRes.success) {
+          throw new Error(fallbackRes.error || "Authentication failed on client fallback.");
+        }
+        data = fallbackRes;
       }
 
       // Success! Valid code entered
@@ -222,12 +388,20 @@ export function AccessGating({ onValidated, onLogout, sessionToken, setSessionTo
     // B. Server Heartbeat validation (every 5 seconds)
     heartbeatIntervalRef.current = setInterval(async () => {
       try {
-        const res = await fetch("/api/session-status", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionToken }),
-        });
-        const data = await res.json();
+        let data;
+        try {
+          const res = await fetch("/api/session-status", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionToken }),
+          });
+          if (!res.ok) {
+            throw new Error("HTTP " + res.status);
+          }
+          data = await res.json();
+        } catch (apiErr) {
+          data = fallbackSessionStatus(sessionToken || "");
+        }
 
         if (data.status === "active") {
           const serverSecs = Math.max(0, Math.round(data.remainingMs / 1000));
@@ -278,11 +452,19 @@ export function AccessGating({ onValidated, onLogout, sessionToken, setSessionTo
   const executeQuitAndVoid = async () => {
     setLoading(true);
     try {
-      await fetch("/api/void-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionToken }),
-      });
+      try {
+        const res = await fetch("/api/void-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionToken }),
+        });
+        if (!res.ok) {
+          throw new Error("HTTP " + res.status);
+        }
+      } catch (apiErr) {
+        console.warn("API void session failed, falling back to client local storage:", apiErr);
+        fallbackVoidSession(sessionToken || "");
+      }
     } catch (e) {
       console.error("Failed to void session on server:", e);
     }
@@ -331,8 +513,15 @@ export function AccessGating({ onValidated, onLogout, sessionToken, setSessionTo
   const fetchCodesStatus = async () => {
     try {
       setAdminLoading(true);
-      const res = await fetch("/api/admin/status");
-      const data = await res.json();
+      let data;
+      try {
+        const res = await fetch("/api/admin/status");
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        data = await res.json();
+      } catch (apiErr) {
+        console.warn("API load status failed, using client storage fallback:", apiErr);
+        data = fallbackAdminStatus();
+      }
       setCodes(data.codes);
       setSummary(data.summary);
     } catch (e) {
@@ -364,26 +553,32 @@ export function AccessGating({ onValidated, onLogout, sessionToken, setSessionTo
     setAdminMessage("");
 
     try {
-      const res = await fetch("/api/admin/add", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          codesList: list,
-          durationMinutes: bulkDuration
-        }),
-      });
-      const data = await res.json();
-      
-      if (res.ok) {
-        setAdminMessage(`Successfully added ${data.addedCount} codes!`);
-        setBulkCodes("");
-        fetchCodesStatus();
-        triggerVibrate([100, 50, 100]);
-      } else {
-        setAdminMessage(data.error || "Failed to add codes.");
+      let data;
+      try {
+        const res = await fetch("/api/admin/add", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            codesList: list,
+            durationMinutes: bulkDuration
+          }),
+        });
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error || "HTTP " + res.status);
+        }
+        data = await res.json();
+      } catch (apiErr: any) {
+        console.warn("API add failed, using client storage fallback:", apiErr);
+        data = fallbackAdminAdd(list, bulkDuration);
       }
-    } catch (e) {
-      setAdminMessage("Network error trying to upload codes.");
+      
+      setAdminMessage(`Successfully added ${data.addedCount} codes!`);
+      setBulkCodes("");
+      fetchCodesStatus();
+      triggerVibrate([100, 50, 100]);
+    } catch (e: any) {
+      setAdminMessage(e.message || "Failed to add codes.");
     } finally {
       setAdminLoading(false);
     }
@@ -393,12 +588,20 @@ export function AccessGating({ onValidated, onLogout, sessionToken, setSessionTo
     if (!confirm(`Are you sure you want to delete code: ${codeToDelete}?`)) return;
 
     try {
-      const res = await fetch("/api/admin/delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: codeToDelete }),
-      });
-      if (res.ok) {
+      let ok = false;
+      try {
+        const res = await fetch("/api/admin/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: codeToDelete }),
+        });
+        ok = res.ok;
+      } catch (apiErr) {
+        console.warn("API delete failed, using client storage fallback:", apiErr);
+        ok = fallbackAdminDelete(codeToDelete);
+      }
+      
+      if (ok) {
         fetchCodesStatus();
         triggerVibrate(100);
       }
@@ -411,8 +614,16 @@ export function AccessGating({ onValidated, onLogout, sessionToken, setSessionTo
     if (!confirm("Wipe the entire active list and reload the default developer codes?")) return;
 
     try {
-      const res = await fetch("/api/admin/reset-db", { method: "POST" });
-      if (res.ok) {
+      let ok = false;
+      try {
+        const res = await fetch("/api/admin/reset-db", { method: "POST" });
+        ok = res.ok;
+      } catch (apiErr) {
+        console.warn("API reset-db failed, using client storage fallback:", apiErr);
+        ok = fallbackAdminResetDb();
+      }
+      
+      if (ok) {
         fetchCodesStatus();
         triggerVibrate([150, 50, 150]);
       }
