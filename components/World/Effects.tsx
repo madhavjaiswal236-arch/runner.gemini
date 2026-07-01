@@ -17,7 +17,7 @@ export const Effects: React.FC = () => {
         mipmapBlur 
         intensity={1.0} 
         radius={0.6}
-        levels={8}
+        levels={4}
       />
       <Noise opacity={0.05} blendFunction={BlendFunction.OVERLAY} />
       <Vignette eskil={false} offset={0.1} darkness={0.5} />

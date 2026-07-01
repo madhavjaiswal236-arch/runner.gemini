@@ -115,31 +115,31 @@ export const HUD: React.FC = () => {
     setShowTouchControls(isTouch || isMobileSize);
   }, []);
 
-  const triggerLeft = (e: React.TouchEvent | React.MouseEvent) => {
+  const triggerLeft = (e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    triggerVibrate(30);
+    triggerVibrate(15);
     window.dispatchEvent(new CustomEvent('player-move-left'));
   };
 
-  const triggerRight = (e: React.TouchEvent | React.MouseEvent) => {
+  const triggerRight = (e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    triggerVibrate(30);
+    triggerVibrate(15);
     window.dispatchEvent(new CustomEvent('player-move-right'));
   };
 
-  const triggerJump = (e: React.TouchEvent | React.MouseEvent) => {
+  const triggerJump = (e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    triggerVibrate(40);
+    triggerVibrate(20);
     window.dispatchEvent(new CustomEvent('player-jump'));
   };
 
-  const triggerSkill = (e: React.TouchEvent | React.MouseEvent) => {
+  const triggerSkill = (e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    triggerVibrate(50);
+    triggerVibrate(25);
     window.dispatchEvent(new CustomEvent('player-skill'));
   };
 
@@ -355,16 +355,14 @@ export const HUD: React.FC = () => {
                  {/* Left Side: Directional Arrows */}
                  <div className="absolute bottom-6 left-6 flex space-x-3 pointer-events-auto">
                      <button
-                         onTouchStart={triggerLeft}
-                         onMouseDown={triggerLeft}
+                         onPointerDown={triggerLeft}
                          className="w-14 h-14 rounded-2xl bg-cyan-950/70 border border-cyan-500/50 flex items-center justify-center text-cyan-400 active:bg-cyan-500 active:text-black active:scale-95 transition-all shadow-[0_0_15px_rgba(6,182,212,0.15)] active:shadow-[0_0_25px_rgba(6,182,212,0.4)]"
                          aria-label="Move Left"
                      >
                          <ArrowLeft className="w-6 h-6" />
                      </button>
                      <button
-                         onTouchStart={triggerRight}
-                         onMouseDown={triggerRight}
+                         onPointerDown={triggerRight}
                          className="w-14 h-14 rounded-2xl bg-cyan-950/70 border border-cyan-500/50 flex items-center justify-center text-cyan-400 active:bg-cyan-500 active:text-black active:scale-95 transition-all shadow-[0_0_15px_rgba(6,182,212,0.15)] active:shadow-[0_0_25px_rgba(6,182,212,0.4)]"
                          aria-label="Move Right"
                      >
@@ -376,8 +374,7 @@ export const HUD: React.FC = () => {
                  <div className="absolute bottom-6 right-6 flex items-center space-x-3 pointer-events-auto">
                      {/* Immortality / Shield Skill Button */}
                      <button
-                         onTouchStart={triggerSkill}
-                         onMouseDown={triggerSkill}
+                         onPointerDown={triggerSkill}
                          disabled={!hasImmortality}
                          className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
                              hasImmortality
@@ -391,8 +388,7 @@ export const HUD: React.FC = () => {
 
                      {/* Jump Button */}
                      <button
-                         onTouchStart={triggerJump}
-                         onMouseDown={triggerJump}
+                         onPointerDown={triggerJump}
                          className="w-16 h-16 rounded-2xl bg-purple-950/70 border border-purple-500/50 flex flex-col items-center justify-center text-purple-400 active:bg-purple-500 active:text-black active:scale-95 transition-all shadow-[0_0_15px_rgba(168,85,247,0.15)] active:shadow-[0_0_25px_rgba(168,85,247,0.4)]"
                          aria-label="Jump"
                      >

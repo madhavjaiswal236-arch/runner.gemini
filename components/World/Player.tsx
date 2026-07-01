@@ -25,7 +25,7 @@ const JOINT_SPHERE_GEO = new THREE.SphereGeometry(0.07);
 const HIPS_GEO = new THREE.CylinderGeometry(0.16, 0.16, 0.2);
 const LEG_GEO = new THREE.BoxGeometry(0.15, 0.7, 0.15);
 const SHADOW_GEO = new THREE.CircleGeometry(0.5, 32);
-const TRAIL_PARTICLE_COUNT = 80;
+const TRAIL_PARTICLE_COUNT = 40;
 
 export const Player: React.FC = () => {
   const groupRef = useRef<THREE.Group>(null);
@@ -172,11 +172,13 @@ export const Player: React.FC = () => {
 
   useEffect(() => {
     const handleTouchStart = (e: TouchEvent) => {
+      if (e.target instanceof HTMLElement && e.target.closest('button')) return;
       touchStartX.current = e.touches[0].clientX;
       touchStartY.current = e.touches[0].clientY;
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
+        if (e.target instanceof HTMLElement && e.target.closest('button')) return;
         if (status !== GameStatus.PLAYING || countdown > 0) return;
         const deltaX = e.changedTouches[0].clientX - touchStartX.current;
         const deltaY = e.changedTouches[0].clientY - touchStartY.current;

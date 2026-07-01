@@ -113,17 +113,17 @@ export const useStore = create<GameState>((set, get) => ({
 
     if (lives > 1) {
       set({ lives: lives - 1 });
-      triggerVibrate(150); // Single medium pulse for damage
+      triggerVibrate(50); // Single medium pulse for damage
     } else {
       set({ lives: 0, status: GameStatus.GAME_OVER, speed: 0 });
-      triggerVibrate([300, 100, 300, 100, 500]); // Long warning pulses for game over
+      triggerVibrate([150, 50, 150, 50, 200]); // Long warning pulses for game over
     }
   },
 
   addScore: (amount) => set((state) => ({ score: state.score + amount })),
   
   collectGem: (value) => {
-    triggerVibrate(25); // Very brief haptic tick for gems
+    triggerVibrate(10); // Very brief haptic tick for gems
     set((state) => ({ 
       score: state.score + value, 
       gemsCollected: state.gemsCollected + 1 
@@ -136,7 +136,7 @@ export const useStore = create<GameState>((set, get) => ({
     const { collectedLetters, level, speed } = get();
     
     if (!collectedLetters.includes(index)) {
-      triggerVibrate(60); // Distinct physical tick for letters
+      triggerVibrate(20); // Distinct physical tick for letters
       const newLetters = [...collectedLetters, index];
       
       // LINEAR SPEED INCREASE: Add 10% of BASE speed per letter
@@ -157,7 +157,7 @@ export const useStore = create<GameState>((set, get) => ({
             get().advanceLevel();
         } else {
             // Victory Condition
-            triggerVibrate([100, 50, 100, 50, 100, 50, 400]); // Fanfare pattern
+            triggerVibrate([50, 30, 50, 30, 50, 30, 100]); // Fanfare pattern
             set({
                 status: GameStatus.VICTORY,
                 score: get().score + 5000

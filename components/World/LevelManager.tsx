@@ -43,7 +43,7 @@ const SHOP_BACK_GEO = new THREE.BoxGeometry(1, 5, 1.2); // Will be scaled
 const SHOP_OUTLINE_GEO = new THREE.BoxGeometry(1, 7.2, 0.8); // Will be scaled
 const SHOP_FLOOR_GEO = new THREE.PlaneGeometry(1, 4); // Will be scaled
 
-const PARTICLE_COUNT = 600;
+const PARTICLE_COUNT = 300;
 const BASE_LETTER_INTERVAL = 150; 
 
 const getLetterInterval = (level: number) => {
@@ -55,7 +55,69 @@ const getLetterInterval = (level: number) => {
 
 const MISSILE_SPEED = 30; // Extra speed added to world speed
 
+// --- Background Environment ---
+const BackgroundEnvironment: React.FC = () => {
+    const { speed, status } = useStore();
+    const meshRef = useRef<THREE.InstancedMesh>(null);
+    const gridRef = useRef<THREE.GridHelper>(null);
+    const count = 30;
+    const dummy = useMemo(() => new THREE.Object3D(), []);
+    const data = useMemo(() => {
+        const neonColors = ['#00ffff', '#ff00ff', '#ff5e00', '#00ff66', '#bd00ff', '#ffe600'];
+        return new Array(count).fill(0).map(() => ({
+            x: (Math.random() - 0.5) * 200,
+            y: -2,
+            z: -(Math.random() * 400 + 100),
+            scale: 5 + Math.random() * 25,
+            speedOffset: Math.random() * 0.2 + 0.8,
+            color: new THREE.Color(neonColors[Math.floor(Math.random() * neonColors.length)])
+        }));
+    }, []);
 
+    useFrame((state, delta) => {
+        if (status !== GameStatus.PLAYING && status !== GameStatus.SHOP) return;
+        const currentSpeed = speed * delta * 0.5;
+
+        // Move Grid
+        if (gridRef.current) {
+            gridRef.current.position.z += currentSpeed * 2;
+            if (gridRef.current.position.z > 20) {
+                gridRef.current.position.z -= 20;
+            }
+        }
+
+        // Move Mountains
+        if (meshRef.current) {
+            data.forEach((mountain, i) => {
+                mountain.z += currentSpeed * mountain.speedOffset;
+                if (mountain.z > 50) {
+                    mountain.z -= 450;
+                    mountain.x = (Math.random() - 0.5) * 200;
+                    if (Math.abs(mountain.x) < 20) {
+                        mountain.x = mountain.x > 0 ? mountain.x + 20 : mountain.x - 20;
+                    }
+                }
+                dummy.position.set(mountain.x, mountain.y, mountain.z);
+                dummy.scale.set(mountain.scale, mountain.scale * 1.5, mountain.scale);
+                dummy.updateMatrix();
+                meshRef.current!.setMatrixAt(i, dummy.matrix);
+                meshRef.current!.setColorAt(i, mountain.color);
+            });
+            meshRef.current.instanceMatrix.needsUpdate = true;
+            if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
+        }
+    });
+
+    return (
+        <group>
+            <gridHelper ref={gridRef} args={[400, 40, '#ff00ff', '#00ffff']} position={[0, -0.5, 0]} />
+            <instancedMesh ref={meshRef} args={[undefined, undefined, count]}>
+                <coneGeometry args={[1, 1, 4]} />
+                <meshBasicMaterial wireframe transparent opacity={0.3} />
+            </instancedMesh>
+        </group>
+    );
+};
 
 // --- Particle System ---
 const ParticleSystem: React.FC = () => {
@@ -561,6 +623,7 @@ export const LevelManager: React.FC = () => {
 
   return (
     <group>
+      <BackgroundEnvironment />
       <ParticleSystem />
       {objectsRef.current.map(obj => {
         if (!obj.active) return null;
@@ -735,19 +798,20 @@ const GameEntity: React.FC<{ data: GameObject }> = React.memo(({ data }) => {
 
                 {/* --- LETTER --- */}
                 {data.type === ObjectType.LETTER && (
-                    <group scale={[1.5, 1.5, 1.5]}>
-                         <Center>
+                    <group scale={[1.2, 1.2, 1.2]}>
+                         <mesh>
+                             <sphereGeometry args={[0.6, 32, 32]} />
+                             <meshStandardMaterial color={data.color} transparent opacity={0.3} metalness={0.8} roughness={0.2} emissive={data.color} emissiveIntensity={0.5} />
+                         </mesh>
+                         <mesh>
+                             <sphereGeometry args={[0.55, 32, 32]} />
+                             <meshBasicMaterial color={data.color} wireframe />
+                         </mesh>
+                         <Center position={[0, 0, 0.6]}>
                              <Text 
-                                fontSize={1.0} color={data.color} anchorX="center" anchorY="middle" 
-                                 
-                                 
-                                
-                                
-                                
-                                
+                                fontSize={0.8} color="#ffffff" anchorX="center" anchorY="middle" outlineWidth={0.05} outlineColor={data.color}
                              >
                                 {data.value}
-                                <meshStandardMaterial color={data.color} emissive={data.color} emissiveIntensity={1.5} />
                              </Text>
                          </Center>
                     </group>
