@@ -39,7 +39,7 @@ export const Player: React.FC = () => {
   const rightLegRef = useRef<THREE.Group>(null);
   const headRef = useRef<THREE.Group>(null);
 
-  const { status, laneCount, takeDamage, hasDoubleJump, activateImmortality, isImmortalityActive, speed, countdown } = useStore();
+  const { status, laneCount, takeDamage, hasDoubleJump, activateImmortality, isImmortalityActive, speed, countdown, isShieldActive } = useStore();
   
   const [lane, setLane] = React.useState(0);
   const targetX = useRef(0);
@@ -70,8 +70,9 @@ export const Player: React.FC = () => {
 
   // Memoized Materials
   const { armorMaterial, jointMaterial, glowMaterial, shadowMaterial } = useMemo(() => {
-      const armorColor = isImmortalityActive ? '#ffd700' : '#00aaff';
-      const glowColor = isImmortalityActive ? '#ffffff' : '#00ffff';
+      const isProtected = isImmortalityActive || isShieldActive;
+      const armorColor = isProtected ? '#ffd700' : '#00aaff';
+      const glowColor = isProtected ? '#ffffff' : '#00ffff';
       
       return {
           armorMaterial: new THREE.MeshStandardMaterial({ color: armorColor, roughness: 0.3, metalness: 0.8 }),
@@ -79,7 +80,7 @@ export const Player: React.FC = () => {
           glowMaterial: new THREE.MeshBasicMaterial({ color: glowColor }),
           shadowMaterial: new THREE.MeshBasicMaterial({ color: '#000000', opacity: 0.3, transparent: true })
       };
-  }, [isImmortalityActive]); // Only recreate if immortality state changes (for color shift)
+  }, [isImmortalityActive, isShieldActive]); // Only recreate if immortality state changes (for color shift)
 
   // --- Reset State on Game Start ---
   useEffect(() => {
@@ -404,7 +405,7 @@ export const Player: React.FC = () => {
   // Damage Handler
   useEffect(() => {
      const checkHit = (e: any) => {
-        if (isInvincible.current || isImmortalityActive) return;
+        if (isInvincible.current || isImmortalityActive || isShieldActive) return;
         audio.playDamage(); // Play damage sound
         takeDamage();
         isInvincible.current = true;
@@ -412,7 +413,7 @@ export const Player: React.FC = () => {
      };
      window.addEventListener('player-hit', checkHit);
      return () => window.removeEventListener('player-hit', checkHit);
-  }, [takeDamage, isImmortalityActive]);
+  }, [takeDamage, isImmortalityActive, isShieldActive]);
 
   return (
     <group ref={groupRef} position={[0, 0, 0]}>

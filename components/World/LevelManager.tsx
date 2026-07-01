@@ -76,7 +76,9 @@ const BackgroundEnvironment: React.FC = () => {
 
     useFrame((state, delta) => {
         if (status !== GameStatus.PLAYING && status !== GameStatus.SHOP) return;
-        const currentSpeed = speed * delta * 0.5;
+        const { isSpeedBoostActive } = useStore.getState();
+        const effectiveSpeed = isSpeedBoostActive ? speed * 1.5 : speed;
+        const currentSpeed = effectiveSpeed * delta * 0.5;
 
         // Move Grid
         if (gridRef.current) {
@@ -303,8 +305,11 @@ export const LevelManager: React.FC = () => {
     if (status !== GameStatus.PLAYING) return;
     if (countdown > 0) return;
 
+    const { isSpeedBoostActive } = useStore.getState();
+    const effectiveSpeed = isSpeedBoostActive ? speed * 1.5 : speed;
+
     const safeDelta = Math.min(delta, 0.05); 
-    const dist = speed * safeDelta;
+    const dist = effectiveSpeed * safeDelta;
     
     distanceTraveled.current += dist;
 
@@ -424,6 +429,14 @@ export const LevelManager: React.FC = () => {
                             if (obj.type === ObjectType.LETTER && obj.targetIndex !== undefined) {
                                 collectLetter(obj.targetIndex);
                                 audio.playLetterCollect();
+                            }
+                            if (obj.type === ObjectType.POWERUP_SPEED) {
+                                useStore.getState().activateSpeedBoost();
+                                audio.playLetterCollect(); // using letter collect sound for now
+                            }
+                            if (obj.type === ObjectType.POWERUP_SHIELD) {
+                                useStore.getState().activateShield();
+                                audio.playLetterCollect(); // using letter collect sound for now
                             }
                             
                             window.dispatchEvent(new CustomEvent('particle-burst', { 
@@ -600,16 +613,35 @@ export const LevelManager: React.FC = () => {
                 }
 
             } else {
-                // GROUND GEM SPAWNING
+                // GROUND GEM OR POWERUP SPAWNING
                 const lane = getRandomLane(laneCount);
-                keptObjects.push({
-                    id: uuidv4(),
-                    type: ObjectType.GEM,
-                    position: [lane * LANE_WIDTH, 1.2, spawnZ],
-                    active: true,
-                    color: '#00ffff',
-                    points: 50
-                });
+                const r = Math.random();
+                if (r < 0.05) { // 5% chance for Speed Boost
+                    keptObjects.push({
+                        id: uuidv4(),
+                        type: ObjectType.POWERUP_SPEED,
+                        position: [lane * LANE_WIDTH, 1.2, spawnZ],
+                        active: true,
+                        color: '#00ffff'
+                    });
+                } else if (r < 0.10) { // 5% chance for Shield
+                    keptObjects.push({
+                        id: uuidv4(),
+                        type: ObjectType.POWERUP_SHIELD,
+                        position: [lane * LANE_WIDTH, 1.2, spawnZ],
+                        active: true,
+                        color: '#ffff00' 
+                    });
+                } else {
+                    keptObjects.push({
+                        id: uuidv4(),
+                        type: ObjectType.GEM,
+                        position: [lane * LANE_WIDTH, 1.2, spawnZ],
+                        active: true,
+                        color: '#00ffff',
+                        points: 50
+                    });
+                }
             }
             hasChanges = true;
          }
@@ -813,6 +845,35 @@ const GameEntity: React.FC<{ data: GameObject }> = React.memo(({ data }) => {
                              >
                                 {data.value}
                              </Text>
+                         </Center>
+                    </group>
+                )}
+                {/* --- POWERUP SPEED --- */}
+                {data.type === ObjectType.POWERUP_SPEED && (
+                    <group scale={[1.2, 1.2, 1.2]}>
+                         <mesh>
+                             <torusGeometry args={[0.5, 0.1, 16, 32]} />
+                             <meshStandardMaterial color={data.color} emissive={data.color} emissiveIntensity={2} />
+                         </mesh>
+                         <Center position={[0, 0, 0]}>
+                             <Text fontSize={0.5} color="#ffffff" anchorX="center" anchorY="middle">⚡</Text>
+                         </Center>
+                    </group>
+                )}
+
+                {/* --- POWERUP SHIELD --- */}
+                {data.type === ObjectType.POWERUP_SHIELD && (
+                    <group scale={[1.2, 1.2, 1.2]}>
+                         <mesh>
+                             <sphereGeometry args={[0.5, 16, 16]} />
+                             <meshBasicMaterial color={data.color} wireframe />
+                         </mesh>
+                         <mesh>
+                             <sphereGeometry args={[0.4, 16, 16]} />
+                             <meshStandardMaterial color={data.color} emissive={data.color} emissiveIntensity={1} transparent opacity={0.5} />
+                         </mesh>
+                         <Center position={[0, 0, 0.4]}>
+                             <Text fontSize={0.5} color="#ffffff" anchorX="center" anchorY="middle">🛡️</Text>
                          </Center>
                     </group>
                 )}

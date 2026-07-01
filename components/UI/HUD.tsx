@@ -105,7 +105,7 @@ const ShopScreen: React.FC = () => {
 };
 
 export const HUD: React.FC = () => {
-  const { score, lives, maxLives, collectedLetters, status, level, restartGame, startGame, gemsCollected, distance, isImmortalityActive, speed, countdown, startCountdown, hasImmortality } = useStore();
+  const { score, lives, maxLives, collectedLetters, status, level, restartGame, startGame, gemsCollected, distance, isImmortalityActive, speed, countdown, startCountdown, hasImmortality, isSpeedBoostActive, isShieldActive } = useStore();
   const target = ['G', 'E', 'M', 'I', 'N', 'I'];
 
   const [showTouchControls, setShowTouchControls] = useState(false);
@@ -311,11 +311,23 @@ export const HUD: React.FC = () => {
         </div>
 
         {/* Active Skill Indicator */}
-        {isImmortalityActive && (
-             <div className="absolute top-24 left-1/2 transform -translate-x-1/2 text-yellow-400 font-bold text-xl md:text-2xl animate-pulse flex items-center drop-shadow-[0_0_10px_gold]">
-                 <Shield className="mr-2 fill-yellow-400" /> IMMORTAL
-             </div>
-        )}
+        <div className="absolute top-32 md:top-40 left-1/2 transform -translate-x-1/2 flex flex-col items-center space-y-2 pointer-events-none z-50">
+            {isImmortalityActive && (
+                <div className="text-yellow-400 font-bold text-xl md:text-2xl animate-pulse flex items-center drop-shadow-[0_0_10px_gold]">
+                    <Shield className="mr-2 fill-yellow-400" /> IMMORTAL
+                </div>
+            )}
+            {isShieldActive && (
+                <div className="text-yellow-300 font-bold text-xl md:text-2xl animate-pulse flex items-center drop-shadow-[0_0_10px_yellow]">
+                    <Shield className="mr-2" /> SHIELD ACTIVE
+                </div>
+            )}
+            {isSpeedBoostActive && (
+                <div className="text-cyan-400 font-bold text-xl md:text-2xl animate-pulse flex items-center drop-shadow-[0_0_10px_cyan]">
+                    <Zap className="mr-2 fill-cyan-400" /> SPEED BOOST
+                </div>
+            )}
+        </div>
 
         {/* Gemini Collection Status - Just below Top Bar */}
         <div className="absolute top-16 md:top-24 left-1/2 transform -translate-x-1/2 flex space-x-2 md:space-x-3">

@@ -34,6 +34,8 @@ interface GameState {
   hasDoubleJump: boolean;
   hasImmortality: boolean;
   isImmortalityActive: boolean;
+  isSpeedBoostActive: boolean;
+  isShieldActive: boolean;
 
   // Actions
   startGame: () => void;
@@ -51,6 +53,8 @@ interface GameState {
   openShop: () => void;
   closeShop: () => void;
   activateImmortality: () => void;
+  activateSpeedBoost: () => void;
+  activateShield: () => void;
   countdown: number;
   setCountdown: (val: number) => void;
   startCountdown: () => void;
@@ -74,6 +78,8 @@ export const useStore = create<GameState>((set, get) => ({
   hasDoubleJump: false,
   hasImmortality: false,
   isImmortalityActive: false,
+  isSpeedBoostActive: false,
+  isShieldActive: false,
 
   startGame: () => set({ 
     status: GameStatus.PLAYING, 
@@ -88,7 +94,9 @@ export const useStore = create<GameState>((set, get) => ({
     distance: 0,
     hasDoubleJump: false,
     hasImmortality: false,
-    isImmortalityActive: false
+    isImmortalityActive: false,
+    isSpeedBoostActive: false,
+    isShieldActive: false
   }),
 
   restartGame: () => set({ 
@@ -104,12 +112,14 @@ export const useStore = create<GameState>((set, get) => ({
     distance: 0,
     hasDoubleJump: false,
     hasImmortality: false,
-    isImmortalityActive: false
+    isImmortalityActive: false,
+    isSpeedBoostActive: false,
+    isShieldActive: false
   }),
 
   takeDamage: () => {
-    const { lives, isImmortalityActive } = get();
-    if (isImmortalityActive) return; // No damage if skill is active
+    const { lives, isImmortalityActive, isShieldActive } = get();
+    if (isImmortalityActive || isShieldActive) return; // No damage if skill is active
 
     if (lives > 1) {
       set({ lives: lives - 1 });
@@ -223,6 +233,30 @@ export const useStore = create<GameState>((set, get) => ({
           setTimeout(() => {
               set({ isImmortalityActive: false });
           }, 5000);
+      }
+  },
+
+  activateSpeedBoost: () => {
+      const { isSpeedBoostActive } = get();
+      if (!isSpeedBoostActive) {
+          set({ isSpeedBoostActive: true });
+          
+          // Lasts 4 seconds
+          setTimeout(() => {
+              set({ isSpeedBoostActive: false });
+          }, 4000);
+      }
+  },
+
+  activateShield: () => {
+      const { isShieldActive } = get();
+      if (!isShieldActive) {
+          set({ isShieldActive: true });
+          
+          // Lasts 6 seconds
+          setTimeout(() => {
+              set({ isShieldActive: false });
+          }, 6000);
       }
   },
 

@@ -18,7 +18,9 @@ export enum ObjectType {
   LETTER = 'LETTER',
   SHOP_PORTAL = 'SHOP_PORTAL',
   ALIEN = 'ALIEN',
-  MISSILE = 'MISSILE'
+  MISSILE = 'MISSILE',
+  POWERUP_SPEED = 'POWERUP_SPEED',
+  POWERUP_SHIELD = 'POWERUP_SHIELD'
 }
 
 export interface GameObject {
